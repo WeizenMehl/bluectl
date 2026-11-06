@@ -1,0 +1,8 @@
+[package]
+name = "bluectl"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bluez = "0.4.0"
+clap = "4.6.7"
