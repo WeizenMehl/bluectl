@@ -1,3 +1,6 @@
+use std::ptr::addr_eq;
+
+use bluer::Address;
 use clap::{Parser,Subcommand};
 
 ///And CLI bluetooth manager
@@ -18,6 +21,12 @@ enum Commands{
     ToggleDiscoverable,
     TogglePairable,
     Scan,
+    Pair{
+        addr: Address,
+    },
+    Connect{
+        addr: Address,
+    },
 }
 
 #[tokio::main]
@@ -34,6 +43,8 @@ async fn main() -> bluer::Result<()> {
         Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
         Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
         Commands::Scan => bluectl::scan(&bluetooth_context).await?,
+        Commands::Pair {addr} => bluectl::pair(&bluetooth_context, addr).await?,
+        Commands::Connect { addr } => bluectl::connect(&bluetooth_context, addr).await?,
     }
     return Ok(());
 }
