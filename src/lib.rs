@@ -119,3 +119,17 @@ pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::R
     println!("Paired with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
     Ok(())
 }
+
+pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    let device = bluetooth_context.adapter.device(addr)?;
+
+    if !device.is_paired().await? {
+        // I now this is weird because device is defined 2 times
+        // But the user should be able to pair the device manually without connecting
+        pair(bluetooth_context, addr).await?;
+    }
+
+    device.connect().await?;
+    println!("Connected with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
+    Ok(())
+}
