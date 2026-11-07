@@ -21,7 +21,7 @@ pub async fn init()-> bluer::Result<BluetoothContext>{
     return Ok(bluetooth_context)
 }
 
-// Has no use now and doesnt work anyway. Just wanted to have it already because its simple and I dont wanna forget
+// Has no use now and doesn't work anyway. Just wanted to have it already because it's simple and I don't wanna forget
 // Will find its use once I bring ratatui into the project
 pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) -> bluer::Result<()>{
 
@@ -30,7 +30,7 @@ pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) 
             bluetooth_context.adapter = bluetooth_context.session.adapter(adapter_name)?;
             println!("Adapter '{}' is now used for all commands", searched_name);
         }
-        None => println!("Couldnt find adapter named {}",searched_name), 
+        None => println!("Couldn't find adapter named {}",searched_name),
     }
     Ok(())
 }
@@ -45,7 +45,7 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
         let address = adapter.address().await?;
         println!("\tAddress: {}", address);
         let powered = adapter.is_powered().await?;
-        println!("\tPowerd: {}", powered);
+        println!("\tPowered: {}", powered);
         let discoverable = adapter.is_discoverable().await?;
         println!("\tDiscoverable: {}", discoverable);
         let pairable = adapter.is_pairable().await?;
@@ -54,16 +54,16 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
     Ok(())
 }
 
-pub async fn toggle_powerd(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
+pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_powered().await? {
         adapter.set_powered(false).await?;
-        println!("Adapter '{}' is now powerd off", adapter.name());
+        println!("Adapter '{}' is now powered off", adapter.name());
     }
     else {
         adapter.set_powered(true).await?;
-        println!("Adapter '{}' is now powerd on", adapter.name());
+        println!("Adapter '{}' is now powered on", adapter.name());
     }
 
     Ok(())
@@ -101,12 +101,12 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Resu
 }
 
 
-// runs forever for now. But thats okay at least currently
+// runs forever for now. But that's okay at least currently
 pub async fn scan(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
     let mut discover = bluetooth_context.adapter.discover_devices().await?;
     
     while let Some(evt) = discover.next().await {
-        println!("Discoverd: {:?}", evt);
+        println!("Discovered: {:?}", evt);
     }
 
     Ok(())
@@ -114,6 +114,11 @@ pub async fn scan(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
 
 pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
     let device = bluetooth_context.adapter.device(addr)?;
+
+    if device.is_paired().await? {
+        println!("Following device is already paired:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
+        return Ok(());
+    }
 
     device.pair().await?;
     println!("Paired with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
@@ -124,12 +129,47 @@ pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer
     let device = bluetooth_context.adapter.device(addr)?;
 
     if !device.is_paired().await? {
-        // I now this is weird because device is defined 2 times
+        // I know this is weird because device is defined 2 times
         // But the user should be able to pair the device manually without connecting
         pair(bluetooth_context, addr).await?;
     }
 
+    if device.is_connected().await? {
+        println!("Following device is already connected:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
+        return Ok(());
+    }
+
     device.connect().await?;
     println!("Connected with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
+    Ok(())
+}
+
+pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    let device = bluetooth_context.adapter.device(addr)?;
+
+    if !device.is_connected().await? {
+        println!("Device is not connected:\nName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
+        return Ok(());
+    }
+
+    device.disconnect().await?;
+    println!("Disconnected from the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
+    Ok(())
+}
+
+pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    let device = bluetooth_context.adapter.device(addr)?;
+
+    // Read name and address before removing, the device object is invalid afterwards
+    let name = device.name().await?;
+    let address = device.remote_address().await?;
+
+    if !device.is_paired().await? {
+        println!("Following device is not paired:\n\tName: {:?}\n\tAddress: {}", name, address);
+        return Ok(());
+    }
+
+    bluetooth_context.adapter.remove_device(addr).await?;
+    println!("Removed the following device:\n\tName: {:?}\n\tAddress: {}", name, address);
     Ok(())
 }
