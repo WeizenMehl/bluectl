@@ -1,7 +1,5 @@
-use bluer::{self, Adapter, Session};
+use bluer::{self, Adapter, Address, Session};
 use futures::StreamExt;
-use std::thread;
-use std::time::Duration;
 
 pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
@@ -111,5 +109,13 @@ pub async fn scan(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
         println!("Discoverd: {:?}", evt);
     }
 
+    Ok(())
+}
+
+pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    let device = bluetooth_context.adapter.device(addr)?;
+
+    device.pair().await?;
+    println!("Paired with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
     Ok(())
 }
