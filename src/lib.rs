@@ -1,4 +1,7 @@
 use bluer::{self, Adapter, Session};
+use futures::StreamExt;
+use std::thread;
+use std::time::Duration;
 
 pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
@@ -94,6 +97,18 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Resu
     else {
         adapter.set_pairable(true).await?;
         println!("Adapter '{}' is now pairable", adapter.name());
+    }
+
+    Ok(())
+}
+
+
+// runs forever for now. But thats okay at least currently
+pub async fn scan(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
+    let mut discover = bluetooth_context.adapter.discover_devices().await?;
+    
+    while let Some(evt) = discover.next().await {
+        println!("Discoverd: {:?}", evt);
     }
 
     Ok(())

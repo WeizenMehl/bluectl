@@ -17,6 +17,7 @@ enum Commands{
     TogglePowerd,
     ToggleDiscoverable,
     TogglePairable,
+    Scan,
 }
 
 #[tokio::main]
@@ -32,6 +33,7 @@ async fn main() -> bluer::Result<()> {
         Commands::TogglePowerd => bluectl::toggle_powerd(&bluetooth_context).await?,
         Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
         Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
+        Commands::Scan => bluectl::scan(&bluetooth_context).await?,
     }
     return Ok(());
 }
