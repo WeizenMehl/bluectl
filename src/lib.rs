@@ -18,7 +18,7 @@ pub async fn init()-> bluer::Result<BluetoothContext>{
     return Ok(bluetooth_context)
 }
 
-pub async fn status(bluetooth_context :&BluetoothContext) -> bluer::Result<()>{
+pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
     for adapter_name in &bluetooth_context.adapter_names{
         let adapter = bluetooth_context.session.adapter(&adapter_name)?;
         println!("Name: {}", adapter_name);
@@ -31,5 +31,46 @@ pub async fn status(bluetooth_context :&BluetoothContext) -> bluer::Result<()>{
         let discoverable = adapter.is_discoverable().await?;
         println!("\tDiscoverable: {}", discoverable);
     }
+    Ok(())
+}
+
+pub async fn toggle_powerd(bluetooth_context:&BluetoothContext, searched_name:&String) -> bluer::Result<()>{
+
+    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
+        Some(adapter_name) => {
+                let adapter = bluetooth_context.session.adapter(&adapter_name)?;
+                if adapter.is_powered().await? {
+                    adapter.set_powered(false).await?;
+                    println!("Adapter {} is now powerd off", adapter_name);
+                }
+                else {
+                    adapter.set_powered(true).await?;
+                println!("Adapter {} is now powerd on", adapter_name);
+                }
+        }
+        None => println!("No adapter named {}", searched_name)
+    }
+
+    Ok(())
+}
+
+
+pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext, searched_name:&String) -> bluer::Result<()>{
+
+    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
+        Some(adapter_name) => {
+                let adapter = bluetooth_context.session.adapter(&adapter_name)?;
+                if adapter.is_discoverable().await? {
+                    adapter.set_discoverable(false).await?;
+                    println!("Adapter {} is now not discoverable", adapter_name);
+                }
+                else {
+                    adapter.set_discoverable(true).await?;
+                    println!("Adapter {} is now discoverable", adapter_name);
+                }
+        }
+        None => println!("No adapter named {}", searched_name)
+    }
+
     Ok(())
 }
