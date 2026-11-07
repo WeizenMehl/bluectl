@@ -11,29 +11,27 @@ struct  Cli{
 #[derive(Subcommand)]
 enum Commands{
     Status,
-    TogglePowerd{
+    SetAdapter{
         adapter_name: String,
     },
-    ToggleDiscoverable{
-        adapter_name: String,
-    },
-    TogglePairable{
-        adapter_name: String,
-    }
+    TogglePowerd,
+    ToggleDiscoverable,
+    TogglePairable,
 }
 
 #[tokio::main]
 async fn main() -> bluer::Result<()> {
 
-    let bluetooth_context = bluectl::init().await?;
+    let mut bluetooth_context = bluectl::init().await?;
 
     let args = Cli::parse();
 
     match args.command{
         Commands::Status => bluectl::status(&bluetooth_context).await?,
-        Commands::TogglePowerd {adapter_name}=> bluectl::toggle_powerd(&bluetooth_context, &adapter_name).await?,
-        Commands::ToggleDiscoverable {adapter_name}=> bluectl::toggle_discoverable(&bluetooth_context, &adapter_name).await?,
-        Commands::TogglePairable {adapter_name}=> bluectl::toggle_pairable(&bluetooth_context, &adapter_name).await?,
+        Commands::SetAdapter {adapter_name}=> bluectl::set_adapter(&mut bluetooth_context, &adapter_name)?,
+        Commands::TogglePowerd => bluectl::toggle_powerd(&bluetooth_context).await?,
+        Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
+        Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
     }
     return Ok(());
 }

@@ -1,8 +1,9 @@
-use bluer::{self, Session};
+use bluer::{self, Adapter, Session};
 
 pub struct BluetoothContext{
-    pub session: Session,
     pub adapter_names: Vec<String>,
+    pub adapter: Adapter,
+    pub session: Session,
 }
 
 pub async fn init()-> bluer::Result<BluetoothContext>{
@@ -12,11 +13,25 @@ pub async fn init()-> bluer::Result<BluetoothContext>{
 
 
     let bluetooth_context = BluetoothContext{
-        session: session,
+        adapter: session.default_adapter().await?,
         adapter_names:adapter_names,
+        session: session,
     };
     return Ok(bluetooth_context)
 }
+
+pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) -> bluer::Result<()>{
+
+    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
+        Some(adapter_name) => {
+            bluetooth_context.adapter = bluetooth_context.session.adapter(adapter_name)?;
+            println!("Adapter '{}' is now used for all commands", searched_name);
+        }
+        None => println!("Couldnt find adapter named {}",searched_name), 
+    }
+    Ok(())
+}
+
 
 pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
     for adapter_name in &bluetooth_context.adapter_names{
@@ -36,62 +51,47 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
     Ok(())
 }
 
-pub async fn toggle_powerd(bluetooth_context:&BluetoothContext, searched_name:&String) -> bluer::Result<()>{
+pub async fn toggle_powerd(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
 
-    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
-        Some(adapter_name) => {
-                let adapter = bluetooth_context.session.adapter(&adapter_name)?;
-                if adapter.is_powered().await? {
-                    adapter.set_powered(false).await?;
-                    println!("Adapter {} is now powerd off", adapter_name);
-                }
-                else {
-                    adapter.set_powered(true).await?;
-                println!("Adapter {} is now powerd on", adapter_name);
-                }
-        }
-        None => println!("No adapter named {}", searched_name)
+    let adapter = &bluetooth_context.adapter;
+    if adapter.is_powered().await? {
+        adapter.set_powered(false).await?;
+        println!("Adapter '{}' is now powerd off", adapter.name());
+    }
+    else {
+        adapter.set_powered(true).await?;
+        println!("Adapter '{}' is now powerd on", adapter.name());
     }
 
     Ok(())
 }
 
 
-pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext, searched_name:&String) -> bluer::Result<()>{
+pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
 
-    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
-        Some(adapter_name) => {
-                let adapter = bluetooth_context.session.adapter(&adapter_name)?;
-                if adapter.is_discoverable().await? {
-                    adapter.set_discoverable(false).await?;
-                    println!("Adapter {} is now not discoverable", adapter_name);
-                }
-                else {
-                    adapter.set_discoverable(true).await?;
-                    println!("Adapter {} is now discoverable", adapter_name);
-                }
-        }
-        None => println!("No adapter named {}", searched_name)
+    let adapter = &bluetooth_context.adapter;
+    if adapter.is_discoverable().await? {
+        adapter.set_discoverable(false).await?;
+        println!("Adapter '{}' is now not discoverable", adapter.name());
+    }
+    else {
+        adapter.set_discoverable(true).await?;
+        println!("Adapter '{}' is now discoverable", adapter.name());
     }
 
     Ok(())
 }
 
-pub async fn toggle_pairable(bluetooth_context:&BluetoothContext, searched_name:&String) -> bluer::Result<()>{
+pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
 
-    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
-        Some(adapter_name) => {
-                let adapter = bluetooth_context.session.adapter(&adapter_name)?;
-                if adapter.is_pairable().await? {
-                    adapter.set_pairable(false).await?;
-                    println!("Adapter {} is now not pairable", adapter_name);
-                }
-                else {
-                    adapter.set_pairable(true).await?;
-                    println!("Adapter {} is now pairable", adapter_name);
-                }
-        }
-        None => println!("No adapter named {}", searched_name)
+    let adapter = &bluetooth_context.adapter;
+    if adapter.is_pairable().await? {
+        adapter.set_pairable(false).await?;
+        println!("Adapter '{}' is now not pairable", adapter.name());
+    }
+    else {
+        adapter.set_pairable(true).await?;
+        println!("Adapter '{}' is now pairable", adapter.name());
     }
 
     Ok(())
