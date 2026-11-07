@@ -20,6 +20,8 @@ pub async fn init()-> bluer::Result<BluetoothContext>{
     return Ok(bluetooth_context)
 }
 
+// Has no use now and doesnt work anyway. Just wanted to have it already because its simple and I dont wanna forget
+// Will find its use once I bring ratatui into the project
 pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) -> bluer::Result<()>{
 
     match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
