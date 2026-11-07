@@ -30,6 +30,8 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
         println!("\tPowerd: {}", powered);
         let discoverable = adapter.is_discoverable().await?;
         println!("\tDiscoverable: {}", discoverable);
+        let pairable = adapter.is_pairable().await?;
+        println!("\tPairable: {}", pairable);
     }
     Ok(())
 }
@@ -67,6 +69,26 @@ pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext, searched_n
                 else {
                     adapter.set_discoverable(true).await?;
                     println!("Adapter {} is now discoverable", adapter_name);
+                }
+        }
+        None => println!("No adapter named {}", searched_name)
+    }
+
+    Ok(())
+}
+
+pub async fn toggle_pairable(bluetooth_context:&BluetoothContext, searched_name:&String) -> bluer::Result<()>{
+
+    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
+        Some(adapter_name) => {
+                let adapter = bluetooth_context.session.adapter(&adapter_name)?;
+                if adapter.is_pairable().await? {
+                    adapter.set_pairable(false).await?;
+                    println!("Adapter {} is now not pairable", adapter_name);
+                }
+                else {
+                    adapter.set_pairable(true).await?;
+                    println!("Adapter {} is now pairable", adapter_name);
                 }
         }
         None => println!("No adapter named {}", searched_name)
