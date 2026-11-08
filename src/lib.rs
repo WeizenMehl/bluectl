@@ -102,7 +102,7 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Resu
 
 
 // runs forever for now. But that's okay at least currently
-pub async fn scan(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
+pub async fn discovery(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
     let mut discover = bluetooth_context.adapter.discover_devices().await?;
     
     while let Some(evt) = discover.next().await {

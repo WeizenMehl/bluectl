@@ -18,7 +18,7 @@ enum Commands{
     TogglePowered,
     ToggleDiscoverable,
     TogglePairable,
-    Scan,
+    Discovery,
     Pair{
         addr: Address,
     },
@@ -46,7 +46,7 @@ async fn main() -> bluer::Result<()> {
         Commands::TogglePowered => bluectl::toggle_powered(&bluetooth_context).await?,
         Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
         Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
-        Commands::Scan => bluectl::scan(&bluetooth_context).await?,
+        Commands::Discovery => bluectl::discovery(&bluetooth_context).await?,
         Commands::Pair {addr} => bluectl::pair(&bluetooth_context, addr).await?,
         Commands::Connect { addr } => bluectl::connect(&bluetooth_context, addr).await?,
         Commands::Disconnect { addr } => bluectl::disconnect(&bluetooth_context, addr).await?,
