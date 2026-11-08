@@ -6,6 +6,17 @@ pub struct BluetoothContext{
     pub adapter: Adapter,
     pub session: Session,
 }
+impl BluetoothContext{
+    pub async fn contains_device(&self,addr:Address) -> bluer::Result<bool>{
+        let addresses = self.adapter.device_addresses().await?;
+
+        if addresses.contains(&addr){
+            return Ok(true);
+        }
+        println!("Device with address '{}' is not known and needs to be discovered first",addr);
+        Ok(false)
+    }
+}
 
 pub async fn init()-> bluer::Result<BluetoothContext>{
 
@@ -113,6 +124,9 @@ pub async fn discovery(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
 }
 
 pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok(());
+    }
     let device = bluetooth_context.adapter.device(addr)?;
 
     if device.is_paired().await? {
@@ -126,12 +140,13 @@ pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::R
 }
 
 pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok(());
+    }
     let device = bluetooth_context.adapter.device(addr)?;
 
     if !device.is_paired().await? {
-        // I know this is weird because device is defined 2 times
-        // But the user should be able to pair the device manually without connecting
-        pair(bluetooth_context, addr).await?;
+        device.pair().await?;
     }
 
     if device.is_connected().await? {
@@ -145,6 +160,9 @@ pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer
 }
 
 pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok(());
+    }
     let device = bluetooth_context.adapter.device(addr)?;
 
     if !device.is_connected().await? {
@@ -158,6 +176,9 @@ pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> bl
 }
 
 pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok(());
+    }
     let device = bluetooth_context.adapter.device(addr)?;
 
     // Read name and address before removing, the device object is invalid afterwards
