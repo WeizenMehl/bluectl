@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     let mut rl = rustyline::DefaultEditor::new()?;
 
     loop {
-        let readline = rl.readline("[bluectl]")?;
+        let readline = rl.readline("[bluectl]:")?;
         let mut command: Vec<String> = vec!["bluectl".to_string()];
 
         let mut arguments = shlex::split(&readline).unwrap();
@@ -62,7 +62,15 @@ async fn main() -> Result<()> {
             Commands::TogglePowered => bluectl::toggle_powered(&bluetooth_context).await?,
             Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
             Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
-            Commands::Discovery => bluectl::discovery(&bluetooth_context).await?,
+            Commands::Discovery => {
+                let adapter = bluetooth_context.adapter.clone();
+                let mut printer = rl.create_external_printer()?;
+                tokio::spawn(async move {
+                    if let Err(e) = bluectl::discovery(&adapter, &mut printer).await {
+                        eprintln!("Discovery failed: {e}");
+                    }
+                });
+            },
             Commands::Pair {addr} => bluectl::pair(&bluetooth_context, addr).await?,
             Commands::Connect { addr } => bluectl::connect(&bluetooth_context, addr).await?,
             Commands::Disconnect { addr } => bluectl::disconnect(&bluetooth_context, addr).await?,

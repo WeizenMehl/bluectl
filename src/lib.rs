@@ -1,5 +1,6 @@
 use bluer::{self, Adapter, Address, Session};
 use futures::StreamExt;
+use rustyline::ExternalPrinter;
 
 pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
@@ -111,11 +112,11 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Resu
 
 
 // runs forever for now. But that's okay at least currently
-pub async fn discovery(bluetooth_context:&BluetoothContext)-> bluer::Result<()>{
-    let mut discover = bluetooth_context.adapter.discover_devices().await?;
+pub async fn discovery<P:ExternalPrinter>(adapter:&Adapter, printer: &mut P)-> bluer::Result<()>{
+    let mut discover = adapter.discover_devices().await?;
     
     while let Some(evt) = discover.next().await {
-        println!("Discovered: {:?}", evt);
+        printer.print(format!("Discovered: {:?}", evt)).unwrap();
     }
 
     Ok(())
