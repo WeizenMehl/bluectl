@@ -47,6 +47,11 @@ async fn main() -> Result<()> {
         let mut command: Vec<String> = vec!["bluectl".to_string()];
 
         let mut arguments = shlex::split(&readline).unwrap();
+
+        if arguments[0] == "exit"{
+            return Ok(())
+        }
+        
         command.append(&mut arguments);
 
         let args = Cli::parse_from(command);
@@ -63,6 +68,5 @@ async fn main() -> Result<()> {
             Commands::Disconnect { addr } => bluectl::disconnect(&bluetooth_context, addr).await?,
             Commands::RemoveDevice { addr } => bluectl::remove_device(&bluetooth_context, addr).await?,
         }
-        return Ok(()) // will be removed later I am just to tired to implement an exit funciton
     }
 }
