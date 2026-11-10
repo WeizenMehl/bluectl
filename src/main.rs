@@ -2,6 +2,9 @@ use bluer::Address;
 use clap::{Parser,Subcommand};
 use anyhow::Result;
 use shlex::self;
+use tokio::{net::unix::pipe::Sender, sync::oneshot};
+
+mod output;
 
 /// A CLI Bluetooth manager
 #[derive(Parser)]
@@ -41,6 +44,7 @@ async fn main() -> Result<()> {
     let mut bluetooth_context = bluectl::init().await?;
 
     let mut rl = rustyline::DefaultEditor::new()?;
+    let mut sender: tokio::sync::oneshot::Sender<bool>;
 
     loop {
         let readline = rl.readline("[bluectl]:")?;
@@ -57,19 +61,22 @@ async fn main() -> Result<()> {
         let args = Cli::parse_from(command);
 
         match args.command{
-            Commands::Status => bluectl::status(&bluetooth_context).await?,
-            Commands::SetAdapter {adapter_name}=> bluectl::set_adapter(&mut bluetooth_context, &adapter_name)?,
+            Commands::Status => output::print_status(bluectl::status(&bluetooth_context).await?)?,
+            Commands::SetAdapter {adapter_name} => bluectl::set_adapter(&mut bluetooth_context, &adapter_name)?,
             Commands::TogglePowered => bluectl::toggle_powered(&bluetooth_context).await?,
             Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
             Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
             Commands::Discovery => {
-                let adapter = bluetooth_context.adapter.clone();
-                let mut printer = rl.create_external_printer()?;
-                tokio::spawn(async move {
-                    if let Err(e) = bluectl::discovery(&adapter, &mut printer).await {
-                        eprintln!("Discovery failed: {e}");
+                match bluectl::toggle_discovery(&mut bluetooth_context).await{
+                    Ok(Some(discovery_stream)) => {
+                        let (tx, rx) = oneshot::channel::<bool>();
+                        sender = tx;
                     }
-                });
+                    Ok(None) => {
+
+                    }
+                    Err(e) => println!("Error while discovery {}", e), // I dont want any prints in main.rs but lets keep it for now
+                }    
             },
             Commands::Pair {addr} => bluectl::pair(&bluetooth_context, addr).await?,
             Commands::Connect { addr } => bluectl::connect(&bluetooth_context, addr).await?,

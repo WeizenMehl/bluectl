@@ -1,14 +1,16 @@
-use bluer::{self, Adapter, Address, Session};
+use bluer::{self, Adapter, AdapterEvent, Address, Error, Session, l2cap::Stream};
 use futures::StreamExt;
 use rustyline::ExternalPrinter;
+use anyhow::Result;
 
 pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
     pub adapter: Adapter,
     pub session: Session,
+    pub discovery_state: bool,
 }
 impl BluetoothContext{
-    pub async fn contains_device(&self,addr:Address) -> bluer::Result<bool>{
+    pub async fn contains_device(&self,addr:Address) -> Result<bool>{
         let addresses = self.adapter.device_addresses().await?;
 
         if addresses.contains(&addr){
@@ -19,7 +21,7 @@ impl BluetoothContext{
     }
 }
 
-pub async fn init()-> bluer::Result<BluetoothContext>{
+pub async fn init()-> Result<BluetoothContext>{
 
     let session = bluer::Session::new().await?;
     let adapter_names = session.adapter_names().await?;
@@ -29,12 +31,13 @@ pub async fn init()-> bluer::Result<BluetoothContext>{
         adapter: session.default_adapter().await?,
         adapter_names:adapter_names,
         session: session,
+        discovery_state: false,
     };
     return Ok(bluetooth_context)
 }
 
 // Has no use now and doesn't work anyway. Just wanted to have it already because it's simple and I don't wanna forget
-pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) -> bluer::Result<()>{
+pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) -> Result<()>{
 
     match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
         Some(adapter_name) => {
@@ -46,25 +49,35 @@ pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) 
     Ok(())
 }
 
-pub async fn status(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
-    for adapter_name in &bluetooth_context.adapter_names{
-        let adapter = bluetooth_context.session.adapter(&adapter_name)?;
-        println!("Name: {}", adapter_name);
-        let alias = adapter.alias().await?;
-        println!("\tAlias: {}", alias);
-        let address = adapter.address().await?;
-        println!("\tAddress: {}", address);
-        let powered = adapter.is_powered().await?;
-        println!("\tPowered: {}", powered);
-        let discoverable = adapter.is_discoverable().await?;
-        println!("\tDiscoverable: {}", discoverable);
-        let pairable = adapter.is_pairable().await?;
-        println!("\tPairable: {}", pairable);
-    }
-    Ok(())
+pub struct AdapterStatus{
+    pub adapter_name: String,
+    pub adapter_alias: String,
+    pub adapter_adress: Address,
+    pub powered: bool,
+    pub discoverable: bool,
+    pub pairable: bool,
 }
 
-pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
+pub async fn status(bluetooth_context:&BluetoothContext) -> Result<Vec<AdapterStatus>>{
+    let mut adapters_states:Vec<AdapterStatus> = Vec::new();
+    for adapter_name in &bluetooth_context.adapter_names{
+        let adapter = bluetooth_context.session.adapter(&adapter_name)?;
+
+        let adpater_status = AdapterStatus{
+            adapter_name: adapter_name.clone(),
+            adapter_alias: adapter.alias().await?,
+            adapter_adress: adapter.address().await?,
+            powered: adapter.is_powered().await?, 
+            discoverable: adapter.is_discoverable().await?,
+            pairable: adapter.is_pairable().await?,
+        };
+
+        adapters_states.push(adpater_status);
+    }
+    Ok(adapters_states)
+}
+
+pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<()>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_powered().await? {
@@ -80,7 +93,7 @@ pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> bluer::Resul
 }
 
 
-pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
+pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> Result<()>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_discoverable().await? {
@@ -95,7 +108,7 @@ pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> bluer::
     Ok(())
 }
 
-pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Result<()>{
+pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> Result<()>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_pairable().await? {
@@ -110,19 +123,20 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> bluer::Resu
     Ok(())
 }
 
+pub async fn toggle_discovery(bluetooth_context:&mut BluetoothContext) -> Result<Option<impl futures::Stream<Item = AdapterEvent> + Send>>{
 
-// runs forever for now. But that's okay at least currently
-pub async fn discovery<P:ExternalPrinter>(adapter:&Adapter, printer: &mut P)-> bluer::Result<()>{
-    let mut discover = adapter.discover_devices().await?;
-    
-    while let Some(evt) = discover.next().await {
-        printer.print(format!("Discovered: {:?}", evt)).unwrap();
+    if!bluetooth_context.discovery_state{    
+        let discover = bluetooth_context.adapter.discover_devices().await?;
+        bluetooth_context.discovery_state = true;
+        Ok(Some(discover))
     }
-
-    Ok(())
+    else{
+        bluetooth_context.discovery_state = false;
+        return Ok(None);
+    }
 }
 
-pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
     if !bluetooth_context.contains_device(addr).await? {
         return Ok(());
     }
@@ -138,7 +152,7 @@ pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::R
     Ok(())
 }
 
-pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
     if !bluetooth_context.contains_device(addr).await? {
         return Ok(());
     }
@@ -158,7 +172,7 @@ pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer
     Ok(())
 }
 
-pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
     if !bluetooth_context.contains_device(addr).await? {
         return Ok(());
     }
@@ -174,7 +188,7 @@ pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> bl
     Ok(())
 }
 
-pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> bluer::Result<()>{
+pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
     if !bluetooth_context.contains_device(addr).await? {
         return Ok(());
     }
