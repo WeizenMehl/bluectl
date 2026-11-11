@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
                     Err(e) => println!("Error:{}", e), // I dont want any prints in main.rs but lets keep it for now
                 }    
             },
-            Commands::Pair {addr} => bluectl::pair(&bluetooth_context, addr).await?,
+            Commands::Pair {addr} => output::print_device_actions(&bluectl::pair(&bluetooth_context, addr).await?, "paired").await?,
             Commands::Connect { addr } => bluectl::connect(&bluetooth_context, addr).await?,
             Commands::Disconnect { addr } => bluectl::disconnect(&bluetooth_context, addr).await?,
             Commands::RemoveDevice { addr } => bluectl::remove_device(&bluetooth_context, addr).await?,

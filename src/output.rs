@@ -1,4 +1,4 @@
-use bluectl::ToggleAdapterState;
+use bluectl::{DeviceActionResult, ToggleAdapterState};
 use futures::{StreamExt, pin_mut};
 use rustyline::{Editor, ExternalPrinter, history::FileHistory};
 use anyhow::Result;
@@ -40,6 +40,17 @@ pub fn print_adapter_state_toggle(state: &bluectl::ToggleAdapterState,feature:&s
     match state{
         ToggleAdapterState::On => println!("The Adapter is now {}",feature),
         ToggleAdapterState::Off => println!("The Adapter is now not {}", feature)
+    }
+    Ok(())
+}
+
+pub async fn print_device_actions(data:&(bluectl::DeviceActionResult,bluer::Device), feature:&str) -> Result<()>{
+    let (action,device) = data;
+    match action{
+        DeviceActionResult::Success => println!("Successfully {} following Device:\n\tName: {:?}\n\tAddress: {}",feature, device.name().await?,device.remote_address().await?),
+        DeviceActionResult::AlreadyDone => println!("Following device is already {}:\n\tName: {:?}\n\tAddress: {}",feature, device.name().await?, device.remote_address().await?),
+        DeviceActionResult::NotConnected => println!("Device is not connected:\nName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?),
+        DeviceActionResult::DeviceNotFound => println!("Device is not known and needs to be discovered first."),
     }
     Ok(())
 }
