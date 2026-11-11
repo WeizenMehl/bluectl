@@ -1,5 +1,3 @@
-use std::ptr::null;
-
 use bluer::Address;
 use clap::{Parser,Subcommand};
 use anyhow::Result;
@@ -46,7 +44,7 @@ async fn main() -> Result<()> {
     let mut bluetooth_context = bluectl::init().await?;
 
     let mut rl = rustyline::DefaultEditor::new()?;
-    let mut sender: tokio::sync::oneshot::Sender<bool>;
+    let mut sender: Option<tokio::sync::oneshot::Sender<bool>> = None;
     loop {
         let readline = rl.readline("[bluectl]:")?;
         let mut command: Vec<String> = vec!["bluectl".to_string()];
@@ -72,10 +70,14 @@ async fn main() -> Result<()> {
                 match bluectl::toggle_discovery(&bluetooth_context).await{
                     Ok(Some(discovery_stream)) => {
                         let (tx, rx) = oneshot::channel::<bool>();
-                        sender = tx;
+                        sender = Some(tx);
                         output::print_discovery_stream(discovery_stream, rx, &mut rl).await?;
                     }
-                    Ok(None) => {}
+                    Ok(None) => {
+                    if let Some(tx) = sender.take() {
+                        tx.send(true).unwrap();
+                    }
+                    }
                     Err(e) => println!("Error while discovery {}", e), // I dont want any prints in main.rs but lets keep it for now
                 }    
             },

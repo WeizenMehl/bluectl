@@ -1,6 +1,4 @@
-use bluer::{self, Adapter, AdapterEvent, Address, Error, Session, l2cap::Stream};
-use futures::StreamExt;
-use rustyline::ExternalPrinter;
+use bluer::{self, Adapter, AdapterEvent, Address, Session};
 use anyhow::Result;
 
 pub struct BluetoothContext{
