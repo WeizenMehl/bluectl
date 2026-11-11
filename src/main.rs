@@ -23,7 +23,7 @@ enum Commands{
     TogglePowered,
     ToggleDiscoverable,
     TogglePairable,
-    Discovery,
+    ToggleDiscovery,
     Pair{
         addr: Address,
     },
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
             Commands::TogglePowered => bluectl::toggle_powered(&bluetooth_context).await?,
             Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
             Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
-            Commands::Discovery => {
+            Commands::ToggleDiscovery => {
                 match bluectl::toggle_discovery(&bluetooth_context).await{
                     Ok(Some(discovery_stream)) => {
                         let (tx, rx) = oneshot::channel::<bool>();
