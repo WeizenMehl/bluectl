@@ -73,19 +73,22 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> Result<Vec<AdapterSt
     Ok(adapters_states)
 }
 
-pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<()>{
+
+pub enum ToggleAdapterState {
+    On,
+    Off,
+}
+pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<ToggleAdapterState>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_powered().await? {
         adapter.set_powered(false).await?;
-        println!("Adapter '{}' is now powered off", adapter.name());
+        Ok(ToggleAdapterState::Off)
     }
     else {
         adapter.set_powered(true).await?;
-        println!("Adapter '{}' is now powered on", adapter.name());
+        Ok(ToggleAdapterState::On)
     }
-
-    Ok(())
 }
 
 

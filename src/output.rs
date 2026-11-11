@@ -1,9 +1,10 @@
+use bluectl::ToggleAdapterState;
 use futures::{StreamExt, pin_mut};
 use rustyline::{Editor, ExternalPrinter, history::FileHistory};
 use anyhow::Result;
 use bluer::AdapterEvent;
 
-pub fn print_status(adapters_states: Vec<bluectl::AdapterStatus>)-> Result<()>{
+pub fn print_status(adapters_states: &Vec<bluectl::AdapterStatus>)-> Result<()>{
     for state in adapters_states{
         println!("Name: {}", state.adapter_name);
         println!("\tAlias: {}", state.adapter_alias);
@@ -32,5 +33,13 @@ pub async  fn print_discovery_stream(discovery_stream:impl futures::Stream<Item 
             }
         }
     });
+    Ok(())
+}
+
+pub fn print_adapter_state_toggle(state: &bluectl::ToggleAdapterState,feature:&str) -> Result<()>{
+    match state{
+        ToggleAdapterState::On => println!("The Adapter is now {}",feature),
+        ToggleAdapterState::Off => println!("The Adapter is now not {}", feature)
+    }
     Ok(())
 }

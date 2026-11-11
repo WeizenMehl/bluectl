@@ -61,9 +61,9 @@ async fn main() -> Result<()> {
         let args = Cli::parse_from(command);
 
         match args.command{
-            Commands::Status => output::print_status(bluectl::status(&bluetooth_context).await?)?,
+            Commands::Status => output::print_status(&bluectl::status(&bluetooth_context).await?)?,
             Commands::SetAdapter {adapter_name} => bluectl::set_adapter(&mut bluetooth_context, &adapter_name)?,
-            Commands::TogglePowered => bluectl::toggle_powered(&bluetooth_context).await?,
+            Commands::TogglePowered => output::print_adapter_state_toggle(&bluectl::toggle_powered(&bluetooth_context).await?, "powered")?,
             Commands::ToggleDiscoverable => bluectl::toggle_discoverable(&bluetooth_context).await?,
             Commands::TogglePairable => bluectl::toggle_pairable(&bluetooth_context).await?,
             Commands::ToggleDiscovery => {
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
                         tx.send(true).unwrap();
                     }
                     }
-                    Err(e) => println!("Error while discovery {}", e), // I dont want any prints in main.rs but lets keep it for now
+                    Err(e) => println!("Error:{}", e), // I dont want any prints in main.rs but lets keep it for now
                 }    
             },
             Commands::Pair {addr} => bluectl::pair(&bluetooth_context, addr).await?,
