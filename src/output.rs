@@ -15,12 +15,21 @@ pub fn print_status(adapters_states: Vec<bluectl::AdapterStatus>)-> Result<()>{
     Ok(())
 }
 
-pub async fn print_discovery_stream(discovery_stream:impl futures::Stream<Item = AdapterEvent> + Send + 'static, recevier: tokio::sync::oneshot::Receiver<bool>,rl: &mut Editor<(), FileHistory>) -> Result<()>{
+pub async  fn print_discovery_stream(discovery_stream:impl futures::Stream<Item = AdapterEvent> + Send + 'static,mut recevier:tokio::sync::oneshot::Receiver<bool>,rl: &mut Editor<(), FileHistory>) -> Result<()>{
     let mut printer = rl.create_external_printer()?;
     tokio::spawn(async move {
         pin_mut!(discovery_stream);
-        while let Some(evt) = discovery_stream.next().await{
-            printer.print(format!("Discovered: {:?}", evt)).unwrap();
+        loop{
+            tokio::select! {
+                Some(evt) = discovery_stream.next() =>{
+                    printer.print(format!("Discovered: {:?}", evt)).unwrap();
+                }
+
+                _ = &mut recevier =>{
+                    println!("Stopped discovery");
+                    break;
+                }
+            }
         }
     });
     Ok(())

@@ -7,7 +7,6 @@ pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
     pub adapter: Adapter,
     pub session: Session,
-    pub discovery_state: bool,
 }
 impl BluetoothContext{
     pub async fn contains_device(&self,addr:Address) -> Result<bool>{
@@ -31,7 +30,6 @@ pub async fn init()-> Result<BluetoothContext>{
         adapter: session.default_adapter().await?,
         adapter_names:adapter_names,
         session: session,
-        discovery_state: false,
     };
     return Ok(bluetooth_context)
 }
@@ -123,15 +121,13 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> Result<()>{
     Ok(())
 }
 
-pub async fn toggle_discovery(bluetooth_context:&mut BluetoothContext) -> Result<Option<impl futures::Stream<Item = AdapterEvent> + Send>>{
+pub async fn toggle_discovery(bluetooth_context:&BluetoothContext) -> Result<Option<impl futures::Stream<Item = AdapterEvent> + Send + use<>>>{
 
-    if!bluetooth_context.discovery_state{    
+    if !bluetooth_context.adapter.is_discovering().await? {    
         let discover = bluetooth_context.adapter.discover_devices().await?;
-        bluetooth_context.discovery_state = true;
         Ok(Some(discover))
     }
     else{
-        bluetooth_context.discovery_state = false;
         return Ok(None);
     }
 }
