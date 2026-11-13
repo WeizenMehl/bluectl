@@ -87,34 +87,30 @@ pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<Toggl
 }
 
 
-pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> Result<()>{
+pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> Result<ToggleAdapterState>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_discoverable().await? {
         adapter.set_discoverable(false).await?;
-        println!("Adapter '{}' is now not discoverable", adapter.name());
+        Ok(ToggleAdapterState::Off)
     }
     else {
         adapter.set_discoverable(true).await?;
-        println!("Adapter '{}' is now discoverable", adapter.name());
+        Ok(ToggleAdapterState::On)
     }
-
-    Ok(())
 }
 
-pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> Result<()>{
+pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> Result<ToggleAdapterState>{
 
     let adapter = &bluetooth_context.adapter;
     if adapter.is_pairable().await? {
         adapter.set_pairable(false).await?;
-        println!("Adapter '{}' is now not pairable", adapter.name());
+        Ok(ToggleAdapterState::Off)
     }
     else {
         adapter.set_pairable(true).await?;
-        println!("Adapter '{}' is now pairable", adapter.name());
+        Ok(ToggleAdapterState::On)
     }
-
-    Ok(())
 }
 
 pub async fn toggle_discovery(bluetooth_context:&BluetoothContext) -> Result<Option<impl futures::Stream<Item = AdapterEvent> + Send + use<>>>{
@@ -133,6 +129,7 @@ pub enum DeviceActionResult{
     AlreadyDone,
     NotConnected,
     DeviceNotFound,
+    DeviceRemoved,
 }
 
 pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
@@ -142,62 +139,52 @@ pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(
     }
 
     if device.is_paired().await? {
-        //println!("Following device is already paired:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
         return  Ok((DeviceActionResult::AlreadyDone,device));
     }
 
     device.pair().await?;
-    //println!("Paired with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
     Ok((DeviceActionResult::Success,device))
 }
 
-pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
-    if !bluetooth_context.contains_device(addr).await? {
-        return Ok(());
-    }
+pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok((DeviceActionResult::DeviceNotFound,device));
+    }
 
     if !device.is_paired().await? {
         device.pair().await?;
     }
 
     if device.is_connected().await? {
-        println!("Following device is already connected:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
-        return Ok(());
+        return Ok((DeviceActionResult::AlreadyDone,device));
     }
 
     device.connect().await?;
-    println!("Connected with the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
-    Ok(())
+    Ok((DeviceActionResult::Success,device))
 }
 
-pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
-    if !bluetooth_context.contains_device(addr).await? {
-        return Ok(());
-    }
+pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok((DeviceActionResult::DeviceNotFound,device));
+    }
 
     if !device.is_connected().await? {
-        println!("Device is not connected:\nName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
-        return Ok(());
+        return Ok((DeviceActionResult::NotConnected,device));
     }
 
     device.disconnect().await?;
-    println!("Disconnected from the following device:\n\tName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?);
-    Ok(())
+    Ok((DeviceActionResult::Success,device))
 }
 
-pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> Result<()>{
-    if !bluetooth_context.contains_device(addr).await? {
-        return Ok(());
-    }
+pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
+    if !bluetooth_context.contains_device(addr).await? {
+        return Ok((DeviceActionResult::DeviceNotFound,device));
+    }
 
-    // Read name and address before removing, the device object is invalid afterwards
-    let name = device.name().await?;
-    let address = device.remote_address().await?;
-
+    // The device object is invalid afterwards, so output must not query its D-Bus properties
     bluetooth_context.adapter.remove_device(addr).await?;
-    println!("Removed the following device:\n\tName: {:?}\n\tAddress: {}", name, address);
-    Ok(())
+    Ok((DeviceActionResult::DeviceRemoved,device))
 }

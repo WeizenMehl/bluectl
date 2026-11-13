@@ -51,6 +51,7 @@ pub async fn print_device_actions(data:&(bluectl::DeviceActionResult,bluer::Devi
         DeviceActionResult::AlreadyDone => println!("Following device is already {}:\n\tName: {:?}\n\tAddress: {}",feature, device.name().await?, device.remote_address().await?),
         DeviceActionResult::NotConnected => println!("Device is not connected:\nName: {:?}\n\tAddress: {}", device.name().await?, device.remote_address().await?),
         DeviceActionResult::DeviceNotFound => println!("Device is not known and needs to be discovered first."),
+        DeviceActionResult::DeviceRemoved => println!("Removed the following device:\n\tAddress: {}", device.address()),
     }
     Ok(())
 }
