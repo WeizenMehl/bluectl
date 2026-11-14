@@ -1,12 +1,16 @@
-use bluectl::BluetoothContext;
-use bluer::Address;
-use clap::{Parser,Subcommand};
 use anyhow::Result;
+use bluectl::{
+    BluetoothContext, connect, disconnect, init, pair, remove_device, set_adapter, status,
+    toggle_discoverable, toggle_discovery, toggle_pairable, toggle_powered,
+};
+use bluer::Address;
+use clap::{Parser, Subcommand};
 use rustyline::{Editor, history::FileHistory};
-use shlex::self;
-use tokio::sync::oneshot;
+use shlex::split;
+use tokio::sync::oneshot::{Sender, channel};
 
 mod output;
+use output::{print_adapter_state_toggle, print_device_actions, print_discovery_stream, print_status};
 
 /// A CLI Bluetooth manager
 #[derive(Parser)]
@@ -43,42 +47,38 @@ enum Commands{
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    let mut bluetooth_context = bluectl::init().await?;
+    let mut bluetooth_context = init().await?;
 
     let mut rl = rustyline::DefaultEditor::new()?;
-    let mut sender: Option<tokio::sync::oneshot::Sender<bool>> = None;
+    let mut sender: Option<Sender<bool>> = None;
     loop {
-        let readline = rl.readline("[bluectl]:")?;
-        let mut command: Vec<String> = vec!["bluectl".to_string()];
+        
+        let command = interactive_shell_setup(&mut rl)?;
 
-        let mut arguments = shlex::split(&readline).unwrap();
-
-        if arguments[0] == "exit"{
+        if command[1] == "exit"{
             
             return Ok(())
         }
-        
-        command.append(&mut arguments);
 
         let args = Cli::parse_from(command);
 
-        call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+        sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
     }
 }
 
-pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,mut sender: &mut Option<tokio::sync::oneshot::Sender<bool>>, mut rl : &mut Editor<(), FileHistory>) -> Result<()>{
+pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,sender: &mut Option<Sender<bool>>, mut rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
     match args.command{
-        Commands::Status => output::print_status(&bluectl::status(&bluetooth_context).await?)?,
-        Commands::SetAdapter {adapter_name} => bluectl::set_adapter(&mut bluetooth_context, &adapter_name)?,
-        Commands::TogglePowered => output::print_adapter_state_toggle(&bluectl::toggle_powered(&bluetooth_context).await?, "powered")?,
-        Commands::ToggleDiscoverable => output::print_adapter_state_toggle(&bluectl::toggle_discoverable(&bluetooth_context).await?, "discoverable")?,
-        Commands::TogglePairable => output::print_adapter_state_toggle(&bluectl::toggle_pairable(&bluetooth_context).await?, "pairable")?,
+        Commands::Status => print_status(&status(&bluetooth_context).await?)?,
+        Commands::SetAdapter {adapter_name} => set_adapter(&mut bluetooth_context, &adapter_name)?,
+        Commands::TogglePowered => print_adapter_state_toggle(&toggle_powered(&bluetooth_context).await?, "powered")?,
+        Commands::ToggleDiscoverable => print_adapter_state_toggle(&toggle_discoverable(&bluetooth_context).await?, "discoverable")?,
+        Commands::TogglePairable => print_adapter_state_toggle(&toggle_pairable(&bluetooth_context).await?, "pairable")?,
         Commands::ToggleDiscovery => {
-            match bluectl::toggle_discovery(&bluetooth_context).await{
+            match toggle_discovery(&bluetooth_context).await{
                 Ok(Some(discovery_stream)) => {
-                    let (tx, rx) = oneshot::channel::<bool>();
-                    sender = &mut Some(tx);
-                    output::print_discovery_stream(discovery_stream, rx, &mut rl).await?;
+                    let (tx, rx) = channel::<bool>();
+                    print_discovery_stream(discovery_stream, rx, &mut rl).await?;
+                    return Ok(Some(tx));
                 }
                 Ok(None) => {
                     if let Some(tx) = sender.take() {
@@ -88,10 +88,21 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
                 Err(e) => println!("Error:{}", e), // I dont want any prints in main.rs but lets keep it for now
             }    
         },
-        Commands::Pair {addr} => output::print_device_actions(&bluectl::pair(&bluetooth_context, addr).await?, "paired").await?,
-        Commands::Connect { addr } => output::print_device_actions(&bluectl::connect(&bluetooth_context, addr).await?, "connected").await?,
-        Commands::Disconnect { addr } => output::print_device_actions(&bluectl::disconnect(&bluetooth_context, addr).await?, "disconnected").await?,
-        Commands::RemoveDevice { addr } => output::print_device_actions(&bluectl::remove_device(&bluetooth_context, addr).await?, "removed").await?,
+        Commands::Pair {addr} => print_device_actions(&pair(&bluetooth_context, addr).await?, "paired").await?,
+        Commands::Connect { addr } => print_device_actions(&connect(&bluetooth_context, addr).await?, "connected").await?,
+        Commands::Disconnect { addr } => print_device_actions(&disconnect(&bluetooth_context, addr).await?, "disconnected").await?,
+        Commands::RemoveDevice { addr } => print_device_actions(&remove_device(&bluetooth_context, addr).await?, "removed").await?,
         }
-    Ok(())
+    Ok(None)
+}
+
+pub fn interactive_shell_setup(rl : &mut Editor<(), FileHistory>) -> Result<Vec<String>>{
+    let readline = rl.readline("[bluectl]:")?;
+    let mut command: Vec<String> = vec!["bluectl".to_string()];
+
+    let mut arguments = split(&readline).unwrap();
+        
+    command.append(&mut arguments);
+
+    Ok(command)
 }

@@ -1,5 +1,6 @@
-use bluer::{self, Adapter, AdapterEvent, Address, Session};
+use bluer::{Adapter, AdapterEvent, Address, Device, Session};
 use anyhow::Result;
+use futures::Stream;
 
 pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
@@ -15,7 +16,7 @@ impl BluetoothContext{
 
 pub async fn init()-> Result<BluetoothContext>{
 
-    let session = bluer::Session::new().await?;
+    let session = Session::new().await?;
     let adapter_names = session.adapter_names().await?;
 
 
@@ -113,7 +114,7 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> Result<Togg
     }
 }
 
-pub async fn toggle_discovery(bluetooth_context:&BluetoothContext) -> Result<Option<impl futures::Stream<Item = AdapterEvent> + Send + use<>>>{
+pub async fn toggle_discovery(bluetooth_context:&BluetoothContext) -> Result<Option<impl Stream<Item = AdapterEvent> + Send + use<>>>{
 
     if !bluetooth_context.adapter.is_discovering().await? {    
         let discover = bluetooth_context.adapter.discover_devices().await?;
@@ -132,7 +133,7 @@ pub enum DeviceActionResult{
     DeviceRemoved,
 }
 
-pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
+pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
     if !bluetooth_context.contains_device(addr).await? {
         return Ok((DeviceActionResult::DeviceNotFound,device));
@@ -146,7 +147,7 @@ pub async fn pair(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(
     Ok((DeviceActionResult::Success,device))
 }
 
-pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
+pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
     if !bluetooth_context.contains_device(addr).await? {
         return Ok((DeviceActionResult::DeviceNotFound,device));
@@ -164,7 +165,7 @@ pub async fn connect(bluetooth_context:&BluetoothContext, addr:Address) -> Resul
     Ok((DeviceActionResult::Success,device))
 }
 
-pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
+pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
     if !bluetooth_context.contains_device(addr).await? {
         return Ok((DeviceActionResult::DeviceNotFound,device));
@@ -178,7 +179,7 @@ pub async fn disconnect(bluetooth_context:&BluetoothContext, addr:Address) -> Re
     Ok((DeviceActionResult::Success,device))
 }
 
-pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, bluer::Device)>{
+pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) -> Result<(DeviceActionResult, Device)>{
     let device = bluetooth_context.adapter.device(addr)?;
     if !bluetooth_context.contains_device(addr).await? {
         return Ok((DeviceActionResult::DeviceNotFound,device));
