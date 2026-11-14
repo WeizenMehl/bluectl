@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 use rustyline::{Editor, history::FileHistory};
 use shlex::split;
 use tokio::sync::oneshot::{Sender, channel};
+use std::env::args_os;
 
 mod output;
 use output::{print_adapter_state_toggle, print_device_actions, print_discovery_stream, print_status};
@@ -48,23 +49,35 @@ enum Commands{
 async fn main() -> Result<()> {
 
     let mut bluetooth_context = init().await?;
-
-    let mut rl = rustyline::DefaultEditor::new()?;
     let mut sender: Option<Sender<bool>> = None;
-    loop {
-        
-        let command = interactive_shell_setup(&mut rl)?;
+    let mut rl = rustyline::DefaultEditor::new()?;
 
-        if command[1] == "exit"{
-            
-            return Ok(())
-        }
-
-        let args = Cli::parse_from(command);
-
-        sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+    if args_os().len() > 1{
+        let args = Cli::parse();
+        call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
     }
+    else{
+        loop {
+                
+            let readline = rl.readline("[bluectl]:")?;
+            let mut command: Vec<String> = vec!["bluectl".to_string()];
+
+            let mut arguments = split(&readline).unwrap();
+                
+            command.append(&mut arguments);
+
+            if command[1] == "exit"{  
+                return Ok(());
+            }
+
+            let args = Cli::parse_from(command);
+
+            sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+        }
+    }
+    Ok(())
 }
+
 
 pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,sender: &mut Option<Sender<bool>>, mut rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
     match args.command{
@@ -94,15 +107,4 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
         Commands::RemoveDevice { addr } => print_device_actions(&remove_device(&bluetooth_context, addr).await?, "removed").await?,
         }
     Ok(None)
-}
-
-pub fn interactive_shell_setup(rl : &mut Editor<(), FileHistory>) -> Result<Vec<String>>{
-    let readline = rl.readline("[bluectl]:")?;
-    let mut command: Vec<String> = vec!["bluectl".to_string()];
-
-    let mut arguments = split(&readline).unwrap();
-        
-    command.append(&mut arguments);
-
-    Ok(command)
 }
