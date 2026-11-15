@@ -3,6 +3,7 @@ use bluectl::{AdapterStatus, DeviceActionResult, ToggleAdapterState};
 use bluer::{AdapterEvent, Device,};
 use futures::{Stream, StreamExt, pin_mut};
 use rustyline::{ExternalPrinter};
+use tokio::sync::oneshot::Receiver;
 
 pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
     for state in adapters_states{
@@ -16,11 +17,20 @@ pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
     Ok(())
 }
 
-pub async  fn print_discovery_stream<P: ExternalPrinter>(discovery_stream:impl Stream<Item = AdapterEvent> + Send + 'static,mut printer: P) -> Result<()>{
+pub async  fn print_discovery_stream<P: ExternalPrinter>(discovery_stream:impl Stream<Item = AdapterEvent> + Send + 'static,mut printer: P,mut rx:Receiver<bool>) -> Result<()>{
     pin_mut!(discovery_stream);
     loop{
-        let evt = discovery_stream.next().await;
-        printer.print(format!("Discovered: {:?}\n", evt)).unwrap();
+        tokio::select! {
+            Some(evt) = discovery_stream.next() =>{
+                    printer.print(format!("Discovered: {:?}\n", evt)).unwrap();
+            }
+
+            _ = &mut rx =>{
+                println!("Stopped discovery");
+                return Ok(());
+            }
+
+        }
     }
 }
 

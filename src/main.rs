@@ -89,25 +89,17 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
         Commands::ToggleDiscovery => {
             match toggle_discovery(&bluetooth_context).await{
                 Ok(Some(discovery_stream)) => {
-                    let (tx, mut rx) = channel::<bool>();
+                    let (tx, rx) = channel::<bool>();
 
                     if args_os().len() > 1{
-                        print_discovery_stream(discovery_stream,rl.create_external_printer()?).await?;
+                        print_discovery_stream(discovery_stream,rl.create_external_printer()?,rx).await?;
                     }
 
                     else{
                         let printer = rl.create_external_printer()?;
 
                         tokio::spawn(async move {
-                            tokio::select! {
-                                _ = &mut rx =>{
-                                    println!("Stopped discovery");
-                                }
-
-                                _ = print_discovery_stream(discovery_stream,printer) => {
-                                    println!("Discovery ended unexpectivly");
-                                }
-                            }
+                            print_discovery_stream(discovery_stream, printer, rx).await.expect("Couldnt start discovery");
                         }); 
                     }
 
