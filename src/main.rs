@@ -4,7 +4,7 @@ use bluectl::{
     toggle_discoverable, toggle_discovery, toggle_pairable, toggle_powered,
 };
 use bluer::Address;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory};
 use rustyline::{Editor, history::FileHistory};
 use shlex::split;
 use tokio::sync::oneshot::{Sender, channel};
@@ -69,10 +69,19 @@ async fn main() -> Result<()> {
             if command[1] == "exit"{  
                 return Ok(());
             }
+            else if command[1] == "help" {
+                let mut cmd = Cli::command();
+                let mut output = Vec::new();
 
-            let args = Cli::parse_from(command);
+                cmd.write_help(&mut output)?;
 
-            sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+                println!("{}", String::from_utf8_lossy(&output));
+            }
+            else{
+                let args = Cli::parse_from(command);
+
+                sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+            }
         }
     }
     Ok(())
