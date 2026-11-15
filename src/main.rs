@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
 }
 
 
-pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,sender: &mut Option<Sender<bool>>, mut rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
+pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,sender: &mut Option<Sender<bool>>,rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
     match args.command{
         Commands::Status => print_status(&status(&bluetooth_context).await?)?,
         Commands::SetAdapter {adapter_name} => set_adapter(&mut bluetooth_context, &adapter_name)?,
@@ -89,8 +89,28 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
         Commands::ToggleDiscovery => {
             match toggle_discovery(&bluetooth_context).await{
                 Ok(Some(discovery_stream)) => {
-                    let (tx, rx) = channel::<bool>();
-                    print_discovery_stream(discovery_stream, rx, &mut rl).await?;
+                    let (tx, mut rx) = channel::<bool>();
+
+                    if args_os().len() > 1{
+                        print_discovery_stream(discovery_stream,rl.create_external_printer()?).await?;
+                    }
+
+                    else{
+                        let printer = rl.create_external_printer()?;
+
+                        tokio::spawn(async move {
+                            tokio::select! {
+                                _ = &mut rx =>{
+                                    println!("Stopped discovery");
+                                }
+
+                                _ = print_discovery_stream(discovery_stream,printer) => {
+                                    println!("Discovery ended unexpectivly");
+                                }
+                            }
+                        }); 
+                    }
+
                     return Ok(Some(tx));
                 }
                 Ok(None) => {

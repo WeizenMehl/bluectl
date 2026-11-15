@@ -115,7 +115,7 @@ pub async fn toggle_pairable(bluetooth_context:&BluetoothContext) -> Result<Togg
 }
 
 pub async fn toggle_discovery(bluetooth_context:&BluetoothContext) -> Result<Option<impl Stream<Item = AdapterEvent> + Send + use<>>>{
-
+    
     if !bluetooth_context.adapter.is_discovering().await? {    
         let discover = bluetooth_context.adapter.discover_devices().await?;
         Ok(Some(discover))

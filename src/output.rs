@@ -1,9 +1,8 @@
 use anyhow::Result;
 use bluectl::{AdapterStatus, DeviceActionResult, ToggleAdapterState};
-use bluer::{AdapterEvent, Device};
+use bluer::{AdapterEvent, Device,};
 use futures::{Stream, StreamExt, pin_mut};
-use rustyline::{Editor, ExternalPrinter, history::FileHistory};
-use tokio::sync::oneshot::Receiver;
+use rustyline::{ExternalPrinter};
 
 pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
     for state in adapters_states{
@@ -17,24 +16,12 @@ pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
     Ok(())
 }
 
-pub async  fn print_discovery_stream(discovery_stream:impl Stream<Item = AdapterEvent> + Send + 'static,mut recevier:Receiver<bool>,rl: &mut Editor<(), FileHistory>) -> Result<()>{
-    let mut printer = rl.create_external_printer()?;
-    tokio::spawn(async move {
-        pin_mut!(discovery_stream);
-        loop{
-            tokio::select! {
-                Some(evt) = discovery_stream.next() =>{
-                    printer.print(format!("Discovered: {:?}", evt)).unwrap();
-                }
-
-                _ = &mut recevier =>{
-                    println!("Stopped discovery");
-                    break;
-                }
-            }
-        }
-    });
-    Ok(())
+pub async  fn print_discovery_stream<P: ExternalPrinter>(discovery_stream:impl Stream<Item = AdapterEvent> + Send + 'static,mut printer: P) -> Result<()>{
+    pin_mut!(discovery_stream);
+    loop{
+        let evt = discovery_stream.next().await;
+        printer.print(format!("Discovered: {:?}\n", evt)).unwrap();
+    }
 }
 
 pub fn print_adapter_state_toggle(state: &ToggleAdapterState,feature:&str) -> Result<()>{
