@@ -49,7 +49,6 @@ enum Commands{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     let app_context = init().await?;
     let mut bluetooth_context = app_context.bluetooth_context;
     let mut state_dir = app_context.state_dir;
@@ -62,7 +61,6 @@ async fn main() -> Result<()> {
     }
     else{
         loop {
-                
             let readline = rl.readline("[bluectl]:")?;
             let mut command: Vec<String> = vec!["bluectl".to_string()];
 
@@ -102,7 +100,6 @@ async fn main() -> Result<()> {
     }
     Ok(())
 }
-
 
 pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,state_dir: &mut PathBuf ,sender: &mut Option<Sender<bool>>,rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
     match args.command{
