@@ -17,6 +17,7 @@ pub struct BluetoothContext{
     pub adapter: Adapter,
     pub session: Session,
 }
+
 impl BluetoothContext{
     pub async fn contains_device(&self,addr:Address) -> Result<bool>{
         let addresses = self.adapter.device_addresses().await?;
@@ -25,7 +26,6 @@ impl BluetoothContext{
 }
 
 pub async fn init()-> Result<AppContext>{
-
     let session = Session::new().await?;
     let adapter_names = session.adapter_names().await?;
 
@@ -62,7 +62,6 @@ pub enum SetAdapterResult{
 }
 
 pub async fn set_adapter(bluetooth_context:&mut BluetoothContext,state_dir:&mut PathBuf ,searched_name:&str) -> Result<(SetAdapterResult, String)>{
-
     if searched_name == bluetooth_context.adapter.name(){
         return Ok((SetAdapterResult::AlreadySet,searched_name.to_string()));
     }
@@ -73,8 +72,8 @@ pub async fn set_adapter(bluetooth_context:&mut BluetoothContext,state_dir:&mut 
         return Ok((SetAdapterResult::DefaultSet,searched_name.to_string()));
     }
     else{
-        // In theory I could just try setting the adapter and avoid iterating above the hole list
-        // But I wouldnt know which error I would get, so the function may wrongly return an 'not found' error even tho something diffrent went wrong
+        // In theory I could just try setting the adapter and avoid iterating above the whole list
+        // But I wouldnt know which error I would get, so the function may wrongly return a 'not found' error even though something differnt went wrong
         // Also the adapter_names list wont be that long, so the performance loss isnt huge 
         match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
             Some(adapter_name) => {
@@ -131,13 +130,12 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> Result<Vec<AdapterSt
     Ok(adapters_states)
 }
 
-
 pub enum ToggleAdapterState {
     On,
     Off,
 }
-pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<ToggleAdapterState>{
 
+pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<ToggleAdapterState>{
     let adapter = &bluetooth_context.adapter;
     if adapter.is_powered().await? {
         adapter.set_powered(false).await?;
@@ -149,9 +147,7 @@ pub async fn toggle_powered(bluetooth_context:&BluetoothContext) -> Result<Toggl
     }
 }
 
-
 pub async fn toggle_discoverable(bluetooth_context:&BluetoothContext) -> Result<ToggleAdapterState>{
-
     let adapter = &bluetooth_context.adapter;
     if adapter.is_discoverable().await? {
         adapter.set_discoverable(false).await?;
