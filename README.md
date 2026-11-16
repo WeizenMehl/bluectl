@@ -1,2 +1,2 @@
 # bluectl
-Basacly just an side project of an bluetooth manager
+Basically just an side project of an bluetooth cli manager
