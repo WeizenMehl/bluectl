@@ -78,9 +78,14 @@ async fn main() -> Result<()> {
                 println!("{}", String::from_utf8_lossy(&output));
             }
             else{
-                let args = Cli::parse_from(command);
-
-                sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+                match Cli::try_parse_from(command) {
+                    Ok(args) => {
+                        sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+                    }
+                    Err(err) => {
+                        println!("{}",err);
+                    }
+                }
             }
         }
     }
