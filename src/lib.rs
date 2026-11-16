@@ -1,6 +1,16 @@
 use bluer::{Adapter, AdapterEvent, Address, Device, Session};
 use anyhow::Result;
 use futures::Stream;
+use std::fs::{create_dir_all, read_to_string, remove_dir_all};
+use std::path::{PathBuf};
+use std::env::var_os;
+use std::fs;
+
+pub struct AppContext{
+    pub bluetooth_context: BluetoothContext,
+    pub state_dir: PathBuf,
+}
+
 
 pub struct BluetoothContext{
     pub adapter_names: Vec<String>,
@@ -14,31 +24,83 @@ impl BluetoothContext{
     }
 }
 
-pub async fn init()-> Result<BluetoothContext>{
+pub async fn init()-> Result<AppContext>{
 
     let session = Session::new().await?;
     let adapter_names = session.adapter_names().await?;
 
 
+    let state_dir = get_state_dir()?;
+
+    let file_path = state_dir.join("adapter.txt");
+    let mut adapter = session.default_adapter().await?;
+
+    if file_path.exists(){
+        let value = read_to_string(file_path)?;
+        adapter = session.adapter(value.trim())?;
+    }
+
     let bluetooth_context = BluetoothContext{
-        adapter: session.default_adapter().await?,
+        adapter: adapter,
         adapter_names:adapter_names,
         session: session,
     };
-    return Ok(bluetooth_context)
+
+
+    let app_context = AppContext{
+        bluetooth_context,
+        state_dir,
+    };
+    return Ok(app_context)
 }
 
-// Has no use now and doesn't work anyway. Just wanted to have it already because it's simple and I don't wanna forget
-pub fn set_adapter(bluetooth_context:&mut BluetoothContext, searched_name:&str) -> Result<()>{
+pub enum SetAdapterResult{
+    AlreadySet,
+    DefaultSet,
+    Changed,
+    NotFound,
+}
 
-    match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
-        Some(adapter_name) => {
-            bluetooth_context.adapter = bluetooth_context.session.adapter(adapter_name)?;
-            println!("Adapter '{}' is now used for all commands", searched_name);
-        }
-        None => println!("Couldn't find adapter named {}",searched_name),
+pub async fn set_adapter(bluetooth_context:&mut BluetoothContext,state_dir:&mut PathBuf ,searched_name:&str) -> Result<(SetAdapterResult, String)>{
+
+    if searched_name == bluetooth_context.adapter.name(){
+        return Ok((SetAdapterResult::AlreadySet,searched_name.to_string()));
     }
-    Ok(())
+    else if searched_name == bluetooth_context.session.default_adapter().await?.name(){
+        bluetooth_context.adapter = bluetooth_context.session.default_adapter().await?;
+        let path = state_dir.clone();
+        remove_dir_all(path)?;
+        return Ok((SetAdapterResult::DefaultSet,searched_name.to_string()));
+    }
+    else{
+        // In theory I could just try setting the adapter and avoid iterating above the hole list
+        // But I wouldnt know which error I would get, so the function may wrongly return an 'not found' error even tho something diffrent went wrong
+        // Also the adapter_names list wont be that long, so the performance loss isnt huge 
+        match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
+            Some(adapter_name) => {
+                create_dir_all(&state_dir)?;
+                let path = state_dir.join("adapter.txt");
+                fs::write(path, bluetooth_context.adapter.name())?;
+
+                bluetooth_context.adapter = bluetooth_context.session.adapter(adapter_name)?;
+
+                return Ok((SetAdapterResult::Changed,searched_name.to_string()));
+            }
+            None => return Ok((SetAdapterResult::NotFound,searched_name.to_string())),
+        }
+    }
+}
+
+pub fn get_state_dir() -> Result<PathBuf>{
+    let base = var_os("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .or_else(||{
+            var_os("HOME")
+                .map(|home| PathBuf::from(home)
+                .join(".local/state"))
+        })
+        .ok_or_else(|| anyhow::anyhow!("Coudlnt find state directory"))?;
+    Ok(base.join("bluectl"))
 }
 
 pub struct AdapterStatus{
@@ -185,7 +247,6 @@ pub async fn remove_device(bluetooth_context:&BluetoothContext, addr:Address) ->
         return Ok((DeviceActionResult::DeviceNotFound,device));
     }
 
-    // The device object is invalid afterwards, so output must not query its D-Bus properties
     bluetooth_context.adapter.remove_device(addr).await?;
     Ok((DeviceActionResult::DeviceRemoved,device))
 }

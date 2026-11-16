@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bluectl::{AdapterStatus, DeviceActionResult, ToggleAdapterState};
+use bluectl::{AdapterStatus, DeviceActionResult, ToggleAdapterState, SetAdapterResult};
 use bluer::{AdapterEvent, Device,};
 use futures::{Stream, StreamExt, pin_mut};
 use rustyline::{ExternalPrinter};
@@ -51,5 +51,17 @@ pub async fn print_device_actions(data:&(DeviceActionResult,Device), feature:&st
         DeviceActionResult::DeviceNotFound => println!("Device is not known and needs to be discovered first."),
         DeviceActionResult::DeviceRemoved => println!("Removed the following device:\n\tAddress: {}", device.address()),
     }
+    Ok(())
+}
+
+pub fn print_set_adapter_resutls(data: &(SetAdapterResult, String)) -> Result<()>{
+    let (result,adapter_name) = data;
+    match result{
+        SetAdapterResult::AlreadySet => println!("Adapter '{}' is already used",adapter_name),
+        SetAdapterResult::DefaultSet => println!("Default Adapter '{}' is now used",adapter_name),
+        SetAdapterResult::Changed => println!("Adapter '{}' is now used for all action", adapter_name),
+        SetAdapterResult::NotFound => println!("Adapter with the name '{}' is not found", adapter_name),
+    }
+
     Ok(())
 }

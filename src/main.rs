@@ -8,10 +8,12 @@ use clap::{Parser, Subcommand, CommandFactory};
 use rustyline::{Editor, history::FileHistory};
 use shlex::split;
 use tokio::sync::oneshot::{Sender, channel};
-use std::env::args_os;
+use std::{env::args_os, path::PathBuf};
 
 mod output;
 use output::{print_adapter_state_toggle, print_device_actions, print_discovery_stream, print_status};
+
+use crate::output::print_set_adapter_resutls;
 
 /// A CLI Bluetooth manager
 #[derive(Parser)]
@@ -48,13 +50,15 @@ enum Commands{
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    let mut bluetooth_context = init().await?;
+    let app_context = init().await?;
+    let mut bluetooth_context = app_context.bluetooth_context;
+    let mut state_dir = app_context.state_dir;
     let mut sender: Option<Sender<bool>> = None;
     let mut rl = rustyline::DefaultEditor::new()?;
 
     if args_os().len() > 1{
         let args = Cli::parse();
-        call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
+        call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await?;
     }
     else{
         loop {
@@ -82,7 +86,7 @@ async fn main() -> Result<()> {
                 &_ => {
                     match Cli::try_parse_from(command) {
                     Ok(args) => {
-                        match call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await{
+                        match call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await{
                             Ok(tx) => sender = tx,
                             Err(err) => println!("{}",err),
                         }
@@ -100,10 +104,10 @@ async fn main() -> Result<()> {
 }
 
 
-pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,sender: &mut Option<Sender<bool>>,rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
+pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,state_dir: &mut PathBuf ,sender: &mut Option<Sender<bool>>,rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
     match args.command{
         Commands::Status => print_status(&status(&bluetooth_context).await?)?,
-        Commands::SetAdapter {adapter_name} => set_adapter(&mut bluetooth_context, &adapter_name)?,
+        Commands::SetAdapter {adapter_name} => print_set_adapter_resutls(&set_adapter(&mut bluetooth_context,state_dir, &adapter_name).await?)?,
         Commands::TogglePowered => print_adapter_state_toggle(&toggle_powered(&bluetooth_context).await?, "powered")?,
         Commands::ToggleDiscoverable => print_adapter_state_toggle(&toggle_discoverable(&bluetooth_context).await?, "discoverable")?,
         Commands::TogglePairable => print_adapter_state_toggle(&toggle_pairable(&bluetooth_context).await?, "pairable")?,
@@ -131,7 +135,7 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
                         tx.send(true).unwrap();
                     }
                 }
-                Err(e) => println!("Error:{}", e), // I dont want any prints in main.rs but lets keep it for now
+                Err(e) => println!("Error:{}", e), 
             }    
         },
         Commands::Pair {addr} => print_device_actions(&pair(&bluetooth_context, addr).await?, "paired").await?,
