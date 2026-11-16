@@ -4,16 +4,17 @@ use bluectl::{
     toggle_discoverable, toggle_discovery, toggle_pairable, toggle_powered,
 };
 use bluer::Address;
-use clap::{Parser, Subcommand, CommandFactory};
+use clap::{CommandFactory, Parser, Subcommand};
 use rustyline::{Editor, history::FileHistory};
 use shlex::split;
-use tokio::sync::oneshot::{Sender, channel};
 use std::{env::args_os, path::PathBuf};
+use tokio::sync::oneshot::{Sender, channel};
 
 mod output;
-use output::{print_adapter_state_toggle, print_device_actions, print_discovery_stream, print_status};
-
-use crate::output::print_set_adapter_resutls;
+use output::{
+    print_adapter_state_toggle, print_device_actions, print_discovery_stream,
+    print_set_adapter_results, print_status,
+};
 
 /// A CLI Bluetooth manager
 #[derive(Parser)]
@@ -85,16 +86,16 @@ async fn main() -> Result<()> {
 
                 &_ => {
                     match Cli::try_parse_from(command) {
-                    Ok(args) => {
-                        match call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await{
-                            Ok(tx) => sender = tx,
-                            Err(err) => println!("{}",err),
+                        Ok(args) => {
+                            match call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await{
+                                Ok(tx) => sender = tx,
+                                Err(err) => println!("{}",err),
+                            }
+                        }
+                        Err(err) => {
+                            println!("{}",err);
                         }
                     }
-                    Err(err) => {
-                        println!("{}",err);
-                    }
-                }
 
                 }
             }
@@ -107,7 +108,7 @@ async fn main() -> Result<()> {
 pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,state_dir: &mut PathBuf ,sender: &mut Option<Sender<bool>>,rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
     match args.command{
         Commands::Status => print_status(&status(&bluetooth_context).await?)?,
-        Commands::SetAdapter {adapter_name} => print_set_adapter_resutls(&set_adapter(&mut bluetooth_context,state_dir, &adapter_name).await?)?,
+        Commands::SetAdapter {adapter_name} => print_set_adapter_results(&set_adapter(&mut bluetooth_context,state_dir, &adapter_name).await?)?,
         Commands::TogglePowered => print_adapter_state_toggle(&toggle_powered(&bluetooth_context).await?, "powered")?,
         Commands::ToggleDiscoverable => print_adapter_state_toggle(&toggle_discoverable(&bluetooth_context).await?, "discoverable")?,
         Commands::TogglePairable => print_adapter_state_toggle(&toggle_pairable(&bluetooth_context).await?, "pairable")?,
@@ -124,7 +125,7 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
                         let printer = rl.create_external_printer()?;
 
                         tokio::spawn(async move {
-                            print_discovery_stream(discovery_stream, printer, rx).await.expect("Couldnt start discovery");
+                            print_discovery_stream(discovery_stream, printer, rx).await.expect("Couldn't start discovery");
                         }); 
                     }
 

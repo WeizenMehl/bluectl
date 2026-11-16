@@ -1,10 +1,9 @@
-use bluer::{Adapter, AdapterEvent, Address, Device, Session};
 use anyhow::Result;
+use bluer::{Adapter, AdapterEvent, Address, Device, Session};
 use futures::Stream;
-use std::fs::{create_dir_all, read_to_string, remove_dir_all};
-use std::path::{PathBuf};
 use std::env::var_os;
-use std::fs;
+use std::fs::{self, create_dir_all, read_to_string, remove_dir_all};
+use std::path::PathBuf;
 
 pub struct AppContext{
     pub bluetooth_context: BluetoothContext,
@@ -73,9 +72,9 @@ pub async fn set_adapter(bluetooth_context:&mut BluetoothContext,state_dir:&mut 
         return Ok((SetAdapterResult::DefaultSet,searched_name.to_string()));
     }
     else{
-        // In theory I could just try setting the adapter and avoid iterating above the hole list
-        // But I wouldnt know which error I would get, so the function may wrongly return an 'not found' error even tho something diffrent went wrong
-        // Also the adapter_names list wont be that long, so the performance loss isnt huge 
+        // In theory I could just try setting the adapter and avoid iterating over the whole list
+        // But I wouldn't know which error I would get, so the function may wrongly return a 'not found' error even though something different went wrong
+        // Also the adapter_names list won't be that long, so the performance loss isn't huge
         match bluetooth_context.adapter_names.iter().find(|&x| x == searched_name){
             Some(adapter_name) => {
                 create_dir_all(&state_dir)?;
@@ -99,14 +98,14 @@ pub fn get_state_dir() -> Result<PathBuf>{
                 .map(|home| PathBuf::from(home)
                 .join(".local/state"))
         })
-        .ok_or_else(|| anyhow::anyhow!("Coudlnt find state directory"))?;
+        .ok_or_else(|| anyhow::anyhow!("Couldn't find state directory"))?;
     Ok(base.join("bluectl"))
 }
 
 pub struct AdapterStatus{
     pub adapter_name: String,
     pub adapter_alias: String,
-    pub adapter_adress: Address,
+    pub adapter_address: Address,
     pub powered: bool,
     pub discoverable: bool,
     pub pairable: bool,
@@ -117,16 +116,16 @@ pub async fn status(bluetooth_context:&BluetoothContext) -> Result<Vec<AdapterSt
     for adapter_name in &bluetooth_context.adapter_names{
         let adapter = bluetooth_context.session.adapter(&adapter_name)?;
 
-        let adpater_status = AdapterStatus{
+        let adapter_status = AdapterStatus{
             adapter_name: adapter_name.clone(),
             adapter_alias: adapter.alias().await?,
-            adapter_adress: adapter.address().await?,
+            adapter_address: adapter.address().await?,
             powered: adapter.is_powered().await?, 
             discoverable: adapter.is_discoverable().await?,
             pairable: adapter.is_pairable().await?,
         };
 
-        adapters_states.push(adpater_status);
+        adapters_states.push(adapter_status);
     }
     Ok(adapters_states)
 }

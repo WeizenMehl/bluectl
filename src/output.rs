@@ -1,15 +1,15 @@
 use anyhow::Result;
-use bluectl::{AdapterStatus, DeviceActionResult, ToggleAdapterState, SetAdapterResult};
-use bluer::{AdapterEvent, Device,};
+use bluectl::{AdapterStatus, DeviceActionResult, SetAdapterResult, ToggleAdapterState};
+use bluer::{AdapterEvent, Device};
 use futures::{Stream, StreamExt, pin_mut};
-use rustyline::{ExternalPrinter};
+use rustyline::ExternalPrinter;
 use tokio::sync::oneshot::Receiver;
 
 pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
     for state in adapters_states{
         println!("Name: {}", state.adapter_name);
         println!("\tAlias: {}", state.adapter_alias);
-        println!("\tAddress: {}", state.adapter_adress);
+        println!("\tAddress: {}", state.adapter_address);
         println!("\tPowered: {}", state.powered);
         println!("\tDiscoverable: {}", state.discoverable);
         println!("\tPairable: {}", state.pairable);
@@ -54,14 +54,13 @@ pub async fn print_device_actions(data:&(DeviceActionResult,Device), feature:&st
     Ok(())
 }
 
-pub fn print_set_adapter_resutls(data: &(SetAdapterResult, String)) -> Result<()>{
+pub fn print_set_adapter_results(data: &(SetAdapterResult, String)) -> Result<()>{
     let (result,adapter_name) = data;
     match result{
         SetAdapterResult::AlreadySet => println!("Adapter '{}' is already used",adapter_name),
         SetAdapterResult::DefaultSet => println!("Default Adapter '{}' is now used",adapter_name),
-        SetAdapterResult::Changed => println!("Adapter '{}' is now used for all action", adapter_name),
+        SetAdapterResult::Changed => println!("Adapter '{}' is now used for all actions", adapter_name),
         SetAdapterResult::NotFound => println!("Adapter with the name '{}' is not found", adapter_name),
     }
-
     Ok(())
 }
