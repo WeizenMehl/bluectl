@@ -66,25 +66,29 @@ async fn main() -> Result<()> {
                 
             command.append(&mut arguments);
 
-            if command[1] == "exit"{  
-                return Ok(());
-            }
-            else if command[1] == "help" {
-                let mut cmd = Cli::command();
-                let mut output = Vec::new();
+            match command[1].as_str(){
+                "exit" => {
+                    return Ok(());
+                }
+                "help" => {
+                    let mut cmd = Cli::command();
+                    let mut output = Vec::new();
 
-                cmd.write_help(&mut output)?;
+                    cmd.write_help(&mut output)?;
 
-                println!("{}", String::from_utf8_lossy(&output));
-            }
-            else{
-                match Cli::try_parse_from(command) {
+                    println!("{}", String::from_utf8_lossy(&output));
+                }
+
+                &_ => {
+                    match Cli::try_parse_from(command) {
                     Ok(args) => {
                         sender = call_commands(args, &mut bluetooth_context, &mut sender, &mut rl).await?;
                     }
                     Err(err) => {
                         println!("{}",err);
                     }
+                }
+
                 }
             }
         }
