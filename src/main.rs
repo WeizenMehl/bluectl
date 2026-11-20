@@ -118,14 +118,14 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
                     let (tx, rx) = channel::<bool>();
 
                     if args_os().len() > 1{
-                        print_discovery_stream(discovery_stream,rl.create_external_printer()?,rx).await?;
+                        print_discovery_stream(discovery_stream,&bluetooth_context.adapter,rl.create_external_printer()?,rx).await?;
                     }
 
                     else{
                         let printer = rl.create_external_printer()?;
-
+                        let adapter = bluetooth_context.adapter.clone();
                         tokio::spawn(async move {
-                            print_discovery_stream(discovery_stream, printer, rx).await.expect("Couldn't start discovery");
+                            print_discovery_stream(discovery_stream,&adapter,printer, rx).await.expect("Couldn't start discovery");
                         }); 
                     }
 
