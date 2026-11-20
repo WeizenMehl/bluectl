@@ -88,6 +88,7 @@ async fn main() -> Result<()> {
                     match Cli::try_parse_from(command) {
                         Ok(args) => {
                             match call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await{
+                                Ok(None) => {}
                                 Ok(tx) => sender = tx,
                                 Err(err) => println!("{}",err),
                             }
