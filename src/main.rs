@@ -33,7 +33,7 @@ enum Commands{
     TogglePowered,
     ToggleDiscoverable,
     TogglePairable,
-    ToggleDiscovery,
+    ToggleDiscoveryStream,
     Pair{
         addr: Address,
     },
@@ -112,7 +112,7 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
         Commands::TogglePowered => print_adapter_state_toggle(&toggle_powered(&bluetooth_context).await?, "powered")?,
         Commands::ToggleDiscoverable => print_adapter_state_toggle(&toggle_discoverable(&bluetooth_context).await?, "discoverable")?,
         Commands::TogglePairable => print_adapter_state_toggle(&toggle_pairable(&bluetooth_context).await?, "pairable")?,
-        Commands::ToggleDiscovery => {
+        Commands::ToggleDiscoveryStream => {
             match toggle_discovery(&bluetooth_context).await{
                 Ok(Some(discovery_stream)) => {
                     let (tx, rx) = channel::<bool>();
