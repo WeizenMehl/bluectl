@@ -1,8 +1,8 @@
+use std::sync::mpsc::SyncSender;
 use anyhow::Result;
 use bluectl::{AdapterStatus, DeviceActionResult, SetAdapterResult, ToggleAdapterState};
 use bluer::{AdapterEvent, Device, Adapter};
 use futures::{Stream, StreamExt, pin_mut};
-use rustyline::ExternalPrinter;
 use tokio::sync::oneshot::Receiver;
 
 pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
@@ -17,7 +17,7 @@ pub fn print_status(adapters_states: &Vec<AdapterStatus>)-> Result<()>{
     Ok(())
 }
 
-pub async  fn print_discovery_stream<P: ExternalPrinter>(discovery_stream:impl Stream<Item = AdapterEvent> + Send + 'static, adapter:&Adapter, mut printer: P,mut rx:Receiver<bool>) -> Result<()>{
+pub async  fn print_discovery_stream_thread(discovery_stream:impl Stream<Item = AdapterEvent> + Send + 'static, adapter:&Adapter, printer_tx: &SyncSender<String>,mut rx:Receiver<bool>) -> Result<()>{
     pin_mut!(discovery_stream);
     loop{
         tokio::select! {
@@ -25,14 +25,14 @@ pub async  fn print_discovery_stream<P: ExternalPrinter>(discovery_stream:impl S
                 match evt{
                     AdapterEvent::DeviceAdded(addr) => {
                         let device = adapter.device(addr)?;
-                        printer.print(format!("Added device:\n\tName:{}\n\tAddress{}",device.alias().await?,addr))?; 
+                        printer_tx.send(format!("Added device:\n\tName:{}\n\tAddress{}",device.alias().await?,addr))?;
                     }
                     AdapterEvent::DeviceRemoved(addr) => {
                         let device = adapter.device(addr)?;
-                        printer.print(format!("Removed device:\n\tName:{}\n\tAddress{}",device.alias().await?,addr))?;
+                        printer_tx.send(format!("Removed device:\n\tName:{}\n\tAddress{}",device.alias().await?,addr))?;
                     }
                     AdapterEvent::PropertyChanged(property) => {
-                        printer.print(format!("{:?}",property))?;
+                        printer_tx.send(format!("{:?}",property))?;
                     }
                 }
             }
@@ -42,6 +42,27 @@ pub async  fn print_discovery_stream<P: ExternalPrinter>(discovery_stream:impl S
                 return Ok(());
             }
 
+        }
+    }
+}
+
+pub async fn print_discovery_stream(discovery_stream:impl Stream<Item = AdapterEvent>, adapter:&Adapter) -> Result<()>{
+    pin_mut!(discovery_stream);
+    loop{
+        if let Some(evt) = discovery_stream.next().await{
+            match evt{
+            AdapterEvent::DeviceAdded(addr) => {
+                let device = adapter.device(addr)?;
+                println!("Added device:\n\tName:{}\n\tAddress{}",device.alias().await?,addr);
+            }
+            AdapterEvent::DeviceRemoved(addr) => {
+                let device = adapter.device(addr)?;
+                println!("Removed device:\n\tName:{}\n\tAddress{}",device.alias().await?,addr);
+            }
+            AdapterEvent::PropertyChanged(property) => {
+                println!("{:?}",property);
+            }
+        }
         }
     }
 }

@@ -5,16 +5,18 @@ use bluectl::{
 };
 use bluer::Address;
 use clap::{CommandFactory, Parser, Subcommand};
-use rustyline::{Editor, history::FileHistory};
-use shlex::split;
-use std::{env::args_os, path::PathBuf};
+use std::{env::args_os, path::PathBuf, time::Duration};
 use tokio::sync::oneshot::{Sender, channel};
+use reedline::{DefaultPrompt, Reedline, Signal, DefaultPromptSegment,ExternalPrinter};
+use std::sync::mpsc::SyncSender;
 
 mod output;
 use output::{
     print_adapter_state_toggle, print_device_actions, print_discovery_stream,
     print_set_adapter_results, print_status,
 };
+
+use crate::output::print_discovery_stream_thread;
 
 /// A CLI Bluetooth manager
 #[derive(Parser)]
@@ -55,23 +57,35 @@ async fn main() -> Result<()> {
     let mut bluetooth_context = app_context.bluetooth_context;
     let mut state_dir = app_context.state_dir;
     let mut sender: Option<Sender<bool>> = None;
-    let mut rl = rustyline::DefaultEditor::new()?;
+
+    //reedline should replace rustyline
+    let printer:ExternalPrinter<String> = ExternalPrinter::new(100);
+
+    let printer_tx = printer.sender();
+
+    let mut line_editor = Reedline::create()
+        .with_external_printer(printer)
+        .with_poll_interval(Duration::from_millis(100));
+
+    let prompt = DefaultPrompt::new(
+    DefaultPromptSegment::Basic("bluectl".into()),
+    DefaultPromptSegment::Empty,
+    );
 
     if args_os().len() > 1{
         let args = Cli::parse();
-        call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await?;
+        call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, printer_tx).await?;
     }
     else{
         loop {
-                
-            let readline = rl.readline("[bluectl]:")?;
             let mut command: Vec<String> = vec!["bluectl".to_string()];
 
-            let mut arguments = split(&readline).unwrap();
-                
-            command.append(&mut arguments);
+            let sig = line_editor.read_line(&prompt);
 
-            match command[1].as_str(){
+            match sig {
+            Ok(Signal::Success(buffer)) => {
+                command.extend(buffer.lines().map(String::from));
+                match command[1].as_str(){
                 "exit" => {
                     return Ok(());
                 }
@@ -87,7 +101,7 @@ async fn main() -> Result<()> {
                 &_ => {
                     match Cli::try_parse_from(command) {
                         Ok(args) => {
-                            match call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, &mut rl).await{
+                            match call_commands(args, &mut bluetooth_context,&mut state_dir ,&mut sender, printer_tx.clone()).await{
                                 Ok(None) => {}
                                 Ok(tx) => sender = tx,
                                 Err(err) => println!("{}",err),
@@ -100,13 +114,23 @@ async fn main() -> Result<()> {
 
                 }
             }
+                
+            }
+            Ok(Signal::CtrlD) | Ok(Signal::CtrlC(_)) => {
+                println!("\nAborted!");
+                break;
+            }
+            x => {
+                println!("Event: {:?}", x);
+            }
+            }
         }
     }
     Ok(())
 }
 
 
-pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,state_dir: &mut PathBuf ,sender: &mut Option<Sender<bool>>,rl : &mut Editor<(), FileHistory>) -> Result<Option<Sender<bool>>>{
+pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContext,state_dir: &mut PathBuf ,sender: &mut Option<Sender<bool>>,printer_tx: SyncSender<String>) -> Result<Option<Sender<bool>>>{
     match args.command{
         Commands::Status => print_status(&status(&bluetooth_context).await?)?,
         Commands::SetAdapter {adapter_name} => print_set_adapter_results(&set_adapter(&mut bluetooth_context,state_dir, &adapter_name).await?)?,
@@ -119,14 +143,14 @@ pub async fn call_commands(args: Cli,mut bluetooth_context: &mut BluetoothContex
                     let (tx, rx) = channel::<bool>();
 
                     if args_os().len() > 1{
-                        print_discovery_stream(discovery_stream,&bluetooth_context.adapter,rl.create_external_printer()?,rx).await?;
+                        print_discovery_stream(discovery_stream,&bluetooth_context.adapter).await?;
                     }
 
                     else{
-                        let printer = rl.create_external_printer()?;
                         let adapter = bluetooth_context.adapter.clone();
+
                         tokio::spawn(async move {
-                            print_discovery_stream(discovery_stream,&adapter,printer, rx).await.expect("Couldn't start discovery");
+                            print_discovery_stream_thread(discovery_stream,&adapter,&printer_tx, rx).await.expect("Couldn't start discovery");
                         }); 
                     }
 
